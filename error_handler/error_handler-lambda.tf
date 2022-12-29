@@ -11,7 +11,7 @@ resource "aws_lambda_function" "aws_lambda_error_handler" {
       TOPIC = "${var.prefix}-batch-job-failure"
     }
   }
-  tags             = local.default_tags
+  tags = local.default_tags
 }
 
 resource "aws_lambda_permission" "aws_lambda_error_handler_eventbridge" {
@@ -220,5 +220,5 @@ resource "aws_cloudwatch_metric_alarm" "aws_cloudwatch_lambda_error_handler_alar
   dimensions = {
     "FunctionName" = "${aws_lambda_function.aws_lambda_error_handler.function_name}"
   }
-  tags                = local.default_tags
+  tags = local.default_tags
 }

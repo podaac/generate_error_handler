@@ -1,4 +1,8 @@
 terraform {
+  backend "s3" {
+    encrypt = true
+    key     = "error_handler.tfstate"
+  }
   required_providers {
     aws = {
       source  = "hashicorp/aws"
