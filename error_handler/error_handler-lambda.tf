@@ -11,7 +11,6 @@ resource "aws_lambda_function" "aws_lambda_error_handler" {
       TOPIC = "${var.prefix}-batch-job-failure"
     }
   }
-  tags = local.default_tags
 }
 
 resource "aws_lambda_permission" "aws_lambda_error_handler_eventbridge" {
@@ -38,7 +37,6 @@ resource "aws_iam_role" "aws_lambda_execution_role" {
     ]
   })
   permissions_boundary = "arn:aws:iam::${local.account_id}:policy/NGAPShRoleBoundary"
-  tags                 = local.default_tags
 }
 
 resource "aws_iam_role_policy_attachment" "aws_lambda_execution_role_policy_attach" {
@@ -95,7 +93,6 @@ resource "aws_cloudwatch_event_rule" "aws_eventbridge_batch_job_failure" {
       "status" : ["FAILED"]
     }
   })
-  tags = local.default_tags
 }
 
 resource "aws_cloudwatch_event_target" "aws_eventbridge_batch_job_failure_target" {
@@ -107,7 +104,6 @@ resource "aws_cloudwatch_event_target" "aws_eventbridge_batch_job_failure_target
 resource "aws_sns_topic" "aws_sns_topic_batch_job_failure" {
   name         = "${var.prefix}-batch-job-failure"
   display_name = "${var.prefix}-batch-job-failure"
-  tags         = local.default_tags
 }
 
 resource "aws_sns_topic_policy" "aws_sns_topic_batch_job_failure_policy" {
@@ -153,7 +149,6 @@ resource "aws_sns_topic_subscription" "aws_sns_topic_batch_job_failure_subscript
 resource "aws_sns_topic" "aws_sns_topic_lambda_error_handler_failure" {
   name         = "${var.prefix}-lambda-error-handler-failure"
   display_name = "${var.prefix}-lambda-error-handler-failure"
-  tags         = local.default_tags
 }
 
 resource "aws_sns_topic_policy" "aws_sns_topic_lambda_error_handler_failure_policy" {
@@ -220,5 +215,4 @@ resource "aws_cloudwatch_metric_alarm" "aws_cloudwatch_lambda_error_handler_alar
   dimensions = {
     "FunctionName" = "${aws_lambda_function.aws_lambda_error_handler.function_name}"
   }
-  tags = local.default_tags
 }
