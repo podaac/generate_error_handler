@@ -1,6 +1,7 @@
 variable "app_name" {
   type        = string
   description = "Application name"
+  default     = "generate"
 }
 
 variable "app_version" {
@@ -11,6 +12,7 @@ variable "app_version" {
 variable "aws_region" {
   type        = string
   description = "AWS region to deploy to"
+  default     = "us-west-2"
 }
 
 variable "default_tags" {
