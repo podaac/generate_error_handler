@@ -1,7 +1,6 @@
 terraform {
   backend "s3" {
     encrypt = true
-    key     = "error_handler.tfstate"
   }
   required_providers {
     aws = {
@@ -13,6 +12,12 @@ terraform {
 
 # Configure the AWS Provider
 provider "aws" {
+  default_tags {
+    tags = local.default_tags
+  }
+  ignore_tags {
+    key_prefixes = ["gsfc-ngap"]
+  }
   region  = var.aws_region
   profile = var.profile
 }
