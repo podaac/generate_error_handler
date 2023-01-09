@@ -4,6 +4,8 @@ The error_handler program is an AWS Lambda function that processes AWS Batch job
 
 It logs the job failure to a CloudWatch log and publishes the job failure to an SNS Topic.
 
+Top-level Generate repo: https://github.com/podaac/generate
+
 ## aws infrastructure
 
 The error_handler program includes the following AWS services:
