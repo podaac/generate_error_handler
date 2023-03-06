@@ -47,6 +47,7 @@ def get_logger():
 def log_event(event, logger):
     """Log event details in CloudWatch."""
     
+    logger.info(f"Event - {event}")
     logger.info(f"Failed job account - {event['account']}")
     logger.info(f"Failed job name - {event['detail']['jobName']}")
     logger.info(f"Failed job id - {event['detail']['jobId']}")
@@ -76,7 +77,8 @@ def publish_event(event, logger):
     message = f"A Generate AWS Batch job has failed: {event['detail']['jobName']}.\n" \
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
         + f"Error message: '{event['detail']['attempts'][0]['statusReason']}'\n" \
-        + f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}"
+        + f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n" \
+        + f"Container command: {event['detail']['container']['command']}"
     try:
         response = sns.publish(
             TopicArn = topic_arn,
