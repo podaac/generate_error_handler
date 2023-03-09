@@ -25,6 +25,10 @@ provider "aws" {
 # Data sources
 data "aws_caller_identity" "current" {}
 
+data "aws_sns_topic" "batch_job_failure" {
+  name = "${var.prefix}-batch-job-failure"
+}
+
 # Local variables
 locals {
   account_id = data.aws_caller_identity.current.account_id
