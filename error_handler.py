@@ -16,8 +16,12 @@ def error_handler(event, context):
     """Handles error events delivered from EventBridge."""
     
     logger = get_logger()
-    log_event(event, logger)
-    publish_event(event, logger)
+    if len(event['detail']['attempts']) > 0:
+        error_msg = event['detail']['attempts'][0]['statusReason']
+    else:
+        error_msg = event['detail']['statusReason']
+    log_event(event, error_msg, logger)
+    publish_event(event, error_msg, logger)
     
 def get_logger():
     """Return a formatted logger object."""
@@ -44,7 +48,7 @@ def get_logger():
     # Return logger
     return logger
 
-def log_event(event, logger):
+def log_event(event, error_msg, logger):
     """Log event details in CloudWatch."""
     
     logger.info(f"Event - {event}")
@@ -52,11 +56,11 @@ def log_event(event, logger):
     logger.info(f"Failed job name - {event['detail']['jobName']}")
     logger.info(f"Failed job id - {event['detail']['jobId']}")
     logger.info(f"Failed job queue - {event['detail']['jobQueue']}")
-    logger.info(f"Error message - '{event['detail']['attempts'][0]['statusReason']}'")
-    logger.info(f"Log file - {event['detail']['attempts'][0]['container']['logStreamName']}")
+    logger.info(f"Error message - '{error_msg}'")
+    if len(event['detail']['attempts']) > 0: logger.info(f"Log file - {event['detail']['attempts'][0]['container']['logStreamName']}")
     logger.info(f"Container command - {event['detail']['container']['command']}")
     
-def publish_event(event, logger):
+def publish_event(event, error_msg, logger):
     """Publish event to SNS Topic."""
     
     sns = boto3.client("sns")
@@ -76,9 +80,9 @@ def publish_event(event, logger):
     subject = f"Generate Batch Job Failure: {event['detail']['jobName']}"
     message = f"A Generate AWS Batch job has failed: {event['detail']['jobName']}.\n" \
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
-        + f"Error message: '{event['detail']['attempts'][0]['statusReason']}'\n" \
-        + f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n" \
+        + f"Error message: '{error_msg}'\n" \
         + f"Container command: {event['detail']['container']['command']}"
+    if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
     try:
         response = sns.publish(
             TopicArn = topic_arn,
