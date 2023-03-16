@@ -87,7 +87,7 @@ def publish_event(event, error_msg, logger):
     message = f"A Generate AWS Batch job has failed: {event['detail']['jobName']}.\n" \
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
         + f"Error message: '{error_msg}'\n" \
-        + f"Container command: {event['detail']['container']['command']}"
+        + f"Container command: {event['detail']['container']['command']}\n"
     if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
     try:
         response = sns.publish(
