@@ -64,8 +64,6 @@ def log_event(event, error_msg, logger):
     logger.info(f"Failed job queue - {event['detail']['jobQueue']}")
     logger.info(f"Error message - '{error_msg}'")
     if len(event['detail']['attempts']) > 0: logger.info(f"Log file - {event['detail']['attempts'][0]['container']['logStreamName']}")
-    logger.info(f"Error message - '{error_msg}'")
-    if len(event['detail']['attempts']) > 0: logger.info(f"Log file - {event['detail']['attempts'][0]['container']['logStreamName']}")
     logger.info(f"Container command - {event['detail']['container']['command']}")
     
 def publish_event(event, error_msg, logger):
@@ -90,7 +88,6 @@ def publish_event(event, error_msg, logger):
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
         + f"Error message: '{error_msg}'\n" \
         + f"Container command: {event['detail']['container']['command']}"
-    if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
     if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
     try:
         response = sns.publish(
