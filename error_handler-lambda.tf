@@ -75,6 +75,17 @@ resource "aws_iam_policy" "aws_lambda_execution_policy" {
           "sns:ListTopics"
         ],
         "Resource" : "*"
+      },
+      {
+        "Sid" : "AllowSSMGetPut",
+        "Effect" : "Allow",
+        "Action" : [
+          "ssm:GetParameter",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter",
+          "ssm:DeleteParameters"
+        ],
+        "Resource" : "arn:aws:ssm:${var.aws_region}:${local.account_id}:parameter/${var.prefix}*"
       }
     ]
   })
