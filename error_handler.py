@@ -33,9 +33,12 @@ def error_handler(event, context):
     try:
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
-        logger.error(f"Error trying to restore reserved IDL licenses.")
-        logger.error(e)
-        sys.exit(1)
+        if "(ParameterNotFound)" in str(e):
+            logger.info(f"No unique licenses were found for this execution.")
+        else:
+            logger.error(f"Error trying to restore reserved IDL licenses.")
+            logger.error(e)
+            sys.exit(1)
     
 def get_logger():
     """Return a formatted logger object."""
