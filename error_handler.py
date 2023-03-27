@@ -14,6 +14,10 @@ import time
 import boto3
 import botocore
 
+# Constants
+MAX_DATASET_LIC = 4
+MAX_FLOATING_LIC = 4
+
 def error_handler(event, context):
     """Handles error events delivered from EventBridge."""
     
@@ -183,25 +187,34 @@ def write_licenses(ssm, dataset_lic, floating_lic, prefix, dataset, logger):
     
     try:
         current = ssm.get_parameter(Name=f"{prefix}-idl-{dataset}")["Parameter"]["Value"]
-        total = int(dataset_lic) + int(current)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-{dataset}",
-            Type="String",
-            Value=str(total),
-            Tier="Standard",
-            Overwrite=True
-        )
+        print("CURRENT: ", current)
+        if int(current) != MAX_DATASET_LIC:
+            total = int(dataset_lic) + int(current)
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-{dataset}",
+                Type="String",
+                Value=str(total),
+                Tier="Standard",
+                Overwrite=True
+            )
+            logger.info(f"Wrote {dataset_lic} license(s) to {dataset}.")
+        else:
+            logger.info(f"{dataset} licenses at maxiumum value.")
+            
         current_floating = ssm.get_parameter(Name=f"{prefix}-idl-floating")["Parameter"]["Value"]
-        floating_total = int(floating_lic) + int(current_floating)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-floating",
-            Type="String",
-            Value=str(floating_total),
-            Tier="Standard",
-            Overwrite=True
-        )
-        logger.info(f"Wrote {dataset_lic} license(s) to {dataset}.")
-        logger.info(f"Wrote {floating_lic} license(s)to floating.")
+        print("CURRENT FLOATING: ", current_floating)
+        if int(current_floating) != MAX_FLOATING_LIC:
+            floating_total = int(floating_lic) + int(current_floating)
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-floating",
+                Type="String",
+                Value=str(floating_total),
+                Tier="Standard",
+                Overwrite=True
+            )
+            logger.info(f"Wrote {floating_lic} license(s)to floating.")
+        else:
+            logger.info("Floating licenses at maxiumum value.")
     except botocore.exceptions.ClientError as e:
         logger.error(f"Could not return {dataset} and floating licenses...")
         raise e
