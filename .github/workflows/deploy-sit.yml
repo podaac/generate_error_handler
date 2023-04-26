@@ -16,6 +16,7 @@ env:
   TARGET_ENV: 'SIT'
   PREFIX_ENV: 'service-generate-sit'
   APP_NAME_ENV: 'error-handler'
+  SCRIPT_NAME_ENV: 'error_handler'
 
 jobs:
   build:
@@ -29,7 +30,7 @@ jobs:
 
       # Create Lambda zip deployment
       - name: Create Lambda Zip Package
-        run: deploy/deploy-lambda.sh
+        run: deploy/deploy-lambda.sh ${SCRIPT_NAME_ENV}
       - name: Upload zip package
         uses: actions/upload-artifact@v3.1.0
         with:
