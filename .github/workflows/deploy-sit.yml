@@ -27,24 +27,6 @@ jobs:
       # Check out GitHub repo
       - uses: actions/checkout@v3
 
-      # Set up Terraform
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2.0.3
-        with:
-          terraform_version: 1.3.7
-
-      # Validate Terraform file
-      - name: Validate Terraform
-        run: terraform validate -no-color
-
-      # Configure credentials
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_SERVICES_SIT }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_SERVICES_SIT }}
-          aws-region: us-west-2
-
       # Create Lambda zip deployment
       - name: Create Lambda Zip Package
         run: deploy/deploy-lambda.sh
@@ -53,23 +35,37 @@ jobs:
         with:
           name: ${APP_NAME_ENV}.zip
           path: "${APP_NAME_ENV}.zip"
+
+      # # Configure credentials
+      # - name: Configure AWS credentials
+      #   uses: aws-actions/configure-aws-credentials@v2
+      #   with:
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID_SERVICES_SIT }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY_SERVICES_SIT }}
+      #     aws-region: us-west-2
+
+      # # Set up Terraform
+      # - name: Setup Terraform
+      #   uses: hashicorp/setup-terraform@v2.0.3
+      #   with:
+      #     terraform_version: 1.3.7
       
-      # # Set up TF_VAR environment variables
       # - name: Define TF_VAR values
       #   run: |
       #     echo "TF_VAR_environment=$TARGET_ENV" >> $GITHUB_ENV
       #     echo "TF_VAR_prefix=$PREFIX_ENV" >> $GITHUB_ENV
       #     echo "TF_VAR_sns_topic_email=${{ secrets.SNS_TOPIC_EMAIL }}" >> $GITHUB_ENV
 
-      # # Deploy Terraform
-      # - name: Deploy Terraform
-      #   working-directory: terraform/
-        
-      #   # Set TF_VAR environment variables, initialize and run terraform
+      # - name: Initialize Terraform
       #   run: |
       #     terraform init -reconfigure \
       #         -backend-config="bucket=${PREFIX_ENV}-tf-state" \
       #         -backend-config="key=${APP_NAME_ENV}.tfstate" \
       #         -backend-config="region=${AWS_DEFAULT_REGION}"
 
-      #     terraform apply -auto-approve
+      # - name: Validate Terraform
+      #   run: terraform validate -no-color
+
+      # # Deploy Terraform
+      # - name: Deploy Terraform
+      #   run: terraform apply -auto-approve
