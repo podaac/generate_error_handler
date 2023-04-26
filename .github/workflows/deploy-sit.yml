@@ -35,7 +35,7 @@ jobs:
         uses: actions/upload-artifact@v3.1.0
         with:
           name: ${APP_NAME_ENV}.zip
-          path: "${APP_NAME_ENV}.zip"
+          path: *.zip
 
       # # Configure credentials
       # - name: Configure AWS credentials
