@@ -69,5 +69,4 @@ jobs:
 
       # Deploy Terraform
       - name: Deploy Terraform
-        # run: terraform apply -auto-approve
-        run: terraform plan
+        run: terraform apply -auto-approve
