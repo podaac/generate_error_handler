@@ -38,9 +38,9 @@ def error_handler(event, context):
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
         if "(ParameterNotFound)" in str(e):
-            logger.info(f"No unique licenses were found for this execution.")
+            logger.info(f"No unique licenses were tracked in the parameter store for this execution.")
         else:
-            logger.error(f"Error trying to restore reserved IDL licenses.")
+            logger.error(f"Error trying to restore reserved IDL licenses to the parameter store.")
             logger.error(e)
             sys.exit(1)
     
@@ -60,7 +60,7 @@ def get_logger():
     console_handler = logging.StreamHandler()
 
     # Create a formatter and add it to the handler
-    console_format = logging.Formatter("%(asctime)s - %(module)s - %(levelname)s : %(message)s")
+    console_format = logging.Formatter("%(module)s - %(levelname)s : %(message)s")
     console_handler.setFormatter(console_format)
 
     # Add handlers to logger
@@ -110,6 +110,7 @@ def publish_event(event, error_msg, logger):
             Message = message,
             Subject = subject
         )
+        logger.info(f"Published error message to: {topic_arn}.")
     except botocore.exceptions.ClientError as e:
         logger.error(f"Failed to publish to SNS Topic: {topic_arn}.")
         logger.error(f"Error - {e}")
@@ -181,7 +182,7 @@ def check_existence(ssm, parameter_name, logger):
             if "(ParameterNotFound)" in str(e) :
                 parameter = 0
             else:
-                logger.error(e)
+                logger.error(f"Error - {e}")
                 logger.info("System exit.")
                 exit(1)
         return parameter   
@@ -224,8 +225,8 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
             Tier="Standard",
             Overwrite=True
         )
-        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} licenses to {dataset}.")
-        logger.info(f"Wrote {floating_lic} license(s) to floating.")
+        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} licenses to {prefix}-idl-{dataset}.")
+        logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:
-        logger.error(f"Could not return {dataset} and floating licenses...")
+        logger.error(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
         raise e
