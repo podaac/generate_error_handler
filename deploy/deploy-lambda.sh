@@ -8,10 +8,7 @@
 # Example usage: ./delpoy-lambda.sh "my-app-name"
 
 APP_NAME=$1
-ROOT_PATH="$PWD"
 
-ZIP_PATH=$ROOT_PATH/$APP_NAME.zip
-APP_PATH=$ROOT_PATH/$APP_NAME.py
-
-zip $ZIP_PATH $APP_PATH
-echo "Created: $ZIP_PATH."
+# Zip script
+zip $APP_NAME.zip $APP_NAME.py
+echo "Created: $APP_NAME.zip."
