@@ -116,8 +116,6 @@ def publish_event(event, error_msg, logger):
         logger.error(f"Error - {e}")
         sys.exit(1)
     
-    logger.info(f"Message published to SNS Topic: {topic_arn}.")
-    
 def get_unique_id(command):
     """Parse and return unique ID from container command."""
     
@@ -225,7 +223,7 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
             Tier="Standard",
             Overwrite=True
         )
-        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} licenses to {prefix}-idl-{dataset}.")
+        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} license(s) to {prefix}-idl-{dataset}.")
         logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:
         logger.error(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
