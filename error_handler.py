@@ -142,7 +142,7 @@ def return_licenses(unique_id, prefix, dataset, logger):
         # Wait until no other process is updating license info
         retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
         while retrieving_lic == "True":
-            logger.info("Watiing for license retrieval...")
+            logger.info("Waiting for license retrieval...")
             time.sleep(3)
             retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
         
