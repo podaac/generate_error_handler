@@ -99,11 +99,17 @@ def publish_event(event, error_msg, logger):
             
     # Publish to topic
     subject = f"Generate Batch Job Failure: {event['detail']['jobName']}"
-    message = f"A Generate AWS Batch job has failed: {event['detail']['jobName']}.\n" \
+    message = f"A Generate AWS Batch job has FAILED. Manual intervention required.\n\n" \
+        + "JOB INFORMATION:\n" \
+        + f"Job Name: {event['detail']['jobName']}.\n" \
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
+        + f"Job Queue: {event['detail']['jobQueue']}.\n\n"
+    message += "ERROR INFORMATION:\n" \
         + f"Error message: '{error_msg}'\n" \
         + f"Container command: {event['detail']['container']['command']}\n"
     if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
+    message += "\nThis indicates that a job has failed and manual intervention is required to resubmit OBPG files associated with the failure to the Generate workflow.\n\n"
+    message += "Please follow these steps to diagnose and recover from the failure: https://wiki.jpl.nasa.gov/pages/viewpage.action?pageId=771470900#GenerateCloudErrorDetection&Recovery-AWSBatchJobFailures\n\n\n"
     try:
         response = sns.publish(
             TopicArn = topic_arn,
