@@ -163,14 +163,12 @@ def return_licenses(unique_id, prefix, dataset, logger):
         
         # Place hold on licenses so they are not changed
         hold_license(ssm, prefix, "True", logger)
-        logger.info("Retrieved licenses and set hold to prevent updates.")
         
         # Return licenses to appropriate parameters
         write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
         
         # Release hold as done updating
         hold_license(ssm, prefix, "False", logger)
-        logger.info("Released hold.")
         
         # Delete unique parameters
         response = ssm.delete_parameters(
@@ -206,6 +204,7 @@ def check_existence(ssm, parameter_name, logger):
 def hold_license(ssm, prefix, on_hold, logger):
         """Put parameter license number ot use indicating retrieval in process."""
         
+        hold_action = "place" if on_hold == "True" else "remove"        
         try:
             response = ssm.put_parameter(
                 Name=f"{prefix}-idl-retrieving-license",
@@ -214,8 +213,8 @@ def hold_license(ssm, prefix, on_hold, logger):
                 Tier="Standard",
                 Overwrite=True
             )
+            logger.error(f"{hold_action.capitalize()}D a hold on licenses...")
         except botocore.exceptions.ClientError as e:
-            hold_action = "place" if on_hold == "True" else "remove"
             logger.error(f"Could not {hold_action} a hold on licenses...")
             raise e
         
