@@ -182,6 +182,9 @@ def return_licenses(unique_id, prefix, dataset, logger):
             
             # Release hold as done updating
             hold_license(ssm, prefix, "False", logger)
+            
+        else:
+            logger.info("No licenses to return.")
         
     except botocore.exceptions.ClientError as e:
         raise e
