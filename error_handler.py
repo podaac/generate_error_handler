@@ -7,16 +7,13 @@ Pusblishes error message to SNS Topic.
 # Standard imports
 import logging
 import os
+import random
 import sys
 import time
 
 # Third-party imports
 import boto3
 import botocore
-
-# Constants
-MAX_DATASET_LIC = 4
-MAX_FLOATING_LIC = 4
 
 def error_handler(event, context):
     """Handles error events delivered from EventBridge."""
@@ -34,6 +31,14 @@ def error_handler(event, context):
     unique_id = get_unique_id(event['detail']['container']['command'])
     prefix = '-'.join(event['detail']['jobName'].split('-')[0:3])
     dataset = event['detail']['jobQueue'].split('-')[-1]
+    
+    # Sleep for a random amount of time for multiple job failures
+    random.seed(a=event['detail']['jobId'], version=2)
+    rand_float = random.uniform(1,10)
+    logger.info(f"Sleeping for {rand_float} seconds.")
+    time.sleep(rand_float)
+    
+    # Return licenses
     try:
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
@@ -213,22 +218,24 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
     try:
         current = ssm.get_parameter(Name=f"{prefix}-idl-{dataset}")["Parameter"]["Value"]
         total = int(quicklook_lic) + int(refined_lic) + int(current)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-{dataset}",
-            Type="String",
-            Value=str(total),
-            Tier="Standard",
-            Overwrite=True
-        )
+        if total > 0:
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-{dataset}",
+                Type="String",
+                Value=str(total),
+                Tier="Standard",
+                Overwrite=True
+            )
         current_floating = ssm.get_parameter(Name=f"{prefix}-idl-floating")["Parameter"]["Value"]
         floating_total = int(floating_lic) + int(current_floating)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-floating",
-            Type="String",
-            Value=str(floating_total),
-            Tier="Standard",
-            Overwrite=True
-        )
+        if floating_total > 0:
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-floating",
+                Type="String",
+                Value=str(floating_total),
+                Tier="Standard",
+                Overwrite=True
+            )
         logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} license(s) to {prefix}-idl-{dataset}.")
         logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:

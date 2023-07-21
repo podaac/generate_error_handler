@@ -11,6 +11,7 @@ resource "aws_lambda_function" "aws_lambda_error_handler" {
       TOPIC = "${var.prefix}-batch-job-failure"
     }
   }
+  timeout = 15
 }
 
 resource "aws_lambda_permission" "aws_lambda_error_handler_eventbridge" {
