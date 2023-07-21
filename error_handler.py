@@ -154,31 +154,34 @@ def return_licenses(unique_id, prefix, dataset, logger):
         refined_lic = check_existence(ssm, f"{prefix}-idl-{dataset}-{unique_id}-r", logger)
         floating_lic = check_existence(ssm, f"{prefix}-idl-{dataset}-{unique_id}-floating", logger)
         
-        # Wait until no other process is updating license info
-        retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
-        while retrieving_lic == "True":
-            logger.info("Waiting for license retrieval...")
-            time.sleep(3)
+        # Return licenses if they are available
+        if quicklook_lic != 0 and refined_lic != 0 and floating_lic != 0:
+        
+            # Wait until no other process is updating license info
             retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
-        
-        # Place hold on licenses so they are not changed
-        hold_license(ssm, prefix, "True", logger)
-        
-        # Return licenses to appropriate parameters
-        write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
-        
-        # Delete unique parameters
-        response = ssm.delete_parameters(
-            Names=[f"{prefix}-idl-{dataset}-{unique_id}-ql",
-                   f"{prefix}-idl-{dataset}-{unique_id}-r",
-                   f"{prefix}-idl-{dataset}-{unique_id}-floating"]
-        )
-        if quicklook_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-ql")
-        if refined_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-r")
-        if floating_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-floating")
-        
-        # Release hold as done updating
-        hold_license(ssm, prefix, "False", logger)
+            while retrieving_lic == "True":
+                logger.info("Waiting for license retrieval...")
+                time.sleep(3)
+                retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
+            
+            # Place hold on licenses so they are not changed
+            hold_license(ssm, prefix, "True", logger)
+            
+            # Return licenses to appropriate parameters
+            write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
+            
+            # Delete unique parameters
+            response = ssm.delete_parameters(
+                Names=[f"{prefix}-idl-{dataset}-{unique_id}-ql",
+                    f"{prefix}-idl-{dataset}-{unique_id}-r",
+                    f"{prefix}-idl-{dataset}-{unique_id}-floating"]
+            )
+            if quicklook_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-ql")
+            if refined_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-r")
+            if floating_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-floating")
+            
+            # Release hold as done updating
+            hold_license(ssm, prefix, "False", logger)
         
     except botocore.exceptions.ClientError as e:
         raise e
