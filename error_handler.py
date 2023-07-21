@@ -213,7 +213,7 @@ def hold_license(ssm, prefix, on_hold, logger):
                 Tier="Standard",
                 Overwrite=True
             )
-            logger.error(f"{hold_action.capitalize()}D a hold on licenses...")
+            logger.info(f"{hold_action.capitalize()}d a hold on licenses...")
         except botocore.exceptions.ClientError as e:
             logger.error(f"Could not {hold_action} a hold on licenses...")
             raise e
