@@ -43,7 +43,11 @@ def error_handler(event, context):
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
         if "(ParameterNotFound)" in str(e):
-            logger.info(f"No unique licenses were tracked in the parameter store for this execution.")
+            logger.info(e)
+            logger.info("No unique licenses were tracked in the parameter store for this execution.")
+        elif "(TooManyUpdates)" in str(e):
+            logger.info(e)
+            logger.info("Trying to update the parameter store at the same time as another lambda.")
         else:
             logger.error(f"Error trying to restore reserved IDL licenses to the parameter store.")
             logger.error(e)
@@ -158,13 +162,15 @@ def return_licenses(unique_id, prefix, dataset, logger):
             retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
         
         # Place hold on licenses so they are not changed
-        hold_license(ssm, prefix, "True", logger)  
+        hold_license(ssm, prefix, "True", logger)
+        logger.info("Retrieved licenses and set hold to prevent updates.")
         
         # Return licenses to appropriate parameters
         write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
         
         # Release hold as done updating
         hold_license(ssm, prefix, "False", logger)
+        logger.info("Released hold.")
         
         # Delete unique parameters
         response = ssm.delete_parameters(
@@ -187,6 +193,7 @@ def check_existence(ssm, parameter_name, logger):
         
         try:
             parameter = ssm.get_parameter(Name=parameter_name)["Parameter"]["Value"]
+            logger.info(f"Located {parameter_name} with {parameter} reserved IDL licenses.")
         except botocore.exceptions.ClientError as e:
             if "(ParameterNotFound)" in str(e) :
                 parameter = 0
@@ -226,6 +233,8 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
                 Tier="Standard",
                 Overwrite=True
             )
+        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} license(s) to {prefix}-idl-{dataset}.")
+        
         current_floating = ssm.get_parameter(Name=f"{prefix}-idl-floating")["Parameter"]["Value"]
         floating_total = int(floating_lic) + int(current_floating)
         if floating_total > 0:
@@ -236,7 +245,6 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
                 Tier="Standard",
                 Overwrite=True
             )
-        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} license(s) to {prefix}-idl-{dataset}.")
         logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:
         logger.error(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
