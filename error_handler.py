@@ -167,9 +167,6 @@ def return_licenses(unique_id, prefix, dataset, logger):
         # Return licenses to appropriate parameters
         write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
         
-        # Release hold as done updating
-        hold_license(ssm, prefix, "False", logger)
-        
         # Delete unique parameters
         response = ssm.delete_parameters(
             Names=[f"{prefix}-idl-{dataset}-{unique_id}-ql",
@@ -179,6 +176,9 @@ def return_licenses(unique_id, prefix, dataset, logger):
         if quicklook_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-ql")
         if refined_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-r")
         if floating_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-floating")
+        
+        # Release hold as done updating
+        hold_license(ssm, prefix, "False", logger)
         
     except botocore.exceptions.ClientError as e:
         raise e
