@@ -155,7 +155,7 @@ def return_licenses(unique_id, prefix, dataset, logger):
         floating_lic = check_existence(ssm, f"{prefix}-idl-{dataset}-{unique_id}-floating", logger)
         
         # Return licenses if they are available
-        if quicklook_lic != 0 and refined_lic != 0 and floating_lic != 0:
+        if quicklook_lic != 0 or refined_lic != 0 or floating_lic != 0:
         
             # Wait until no other process is updating license info
             retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
