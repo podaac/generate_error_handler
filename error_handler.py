@@ -7,16 +7,13 @@ Pusblishes error message to SNS Topic.
 # Standard imports
 import logging
 import os
+import random
 import sys
 import time
 
 # Third-party imports
 import boto3
 import botocore
-
-# Constants
-MAX_DATASET_LIC = 4
-MAX_FLOATING_LIC = 4
 
 def error_handler(event, context):
     """Handles error events delivered from EventBridge."""
@@ -34,13 +31,25 @@ def error_handler(event, context):
     unique_id = get_unique_id(event['detail']['container']['command'])
     prefix = '-'.join(event['detail']['jobName'].split('-')[0:3])
     dataset = event['detail']['jobQueue'].split('-')[-1]
+    
+    # Sleep for a random amount of time for multiple job failures
+    random.seed(a=event['detail']['jobId'], version=2)
+    rand_float = random.uniform(1,10)
+    logger.info(f"Sleeping for {rand_float} seconds.")
+    time.sleep(rand_float)
+    
+    # Return licenses
     try:
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
         if "(ParameterNotFound)" in str(e):
-            logger.info(f"No unique licenses were found for this execution.")
+            logger.info(e)
+            logger.info("No unique licenses were tracked in the parameter store for this execution.")
+        elif "(TooManyUpdates)" in str(e):
+            logger.info(e)
+            logger.info("Trying to update the parameter store at the same time as another lambda.")
         else:
-            logger.error(f"Error trying to restore reserved IDL licenses.")
+            logger.error(f"Error trying to restore reserved IDL licenses to the parameter store.")
             logger.error(e)
             sys.exit(1)
     
@@ -60,7 +69,7 @@ def get_logger():
     console_handler = logging.StreamHandler()
 
     # Create a formatter and add it to the handler
-    console_format = logging.Formatter("%(asctime)s - %(module)s - %(levelname)s : %(message)s")
+    console_format = logging.Formatter("%(module)s - %(levelname)s : %(message)s")
     console_handler.setFormatter(console_format)
 
     # Add handlers to logger
@@ -99,23 +108,28 @@ def publish_event(event, error_msg, logger):
             
     # Publish to topic
     subject = f"Generate Batch Job Failure: {event['detail']['jobName']}"
-    message = f"A Generate AWS Batch job has failed: {event['detail']['jobName']}.\n" \
+    message = f"A Generate AWS Batch job has FAILED. Manual intervention required.\n\n" \
+        + "JOB INFORMATION:\n" \
+        + f"Job Name: {event['detail']['jobName']}.\n" \
         + f"Job Identifier: {event['detail']['jobId']}.\n" \
+        + f"Job Queue: {event['detail']['jobQueue']}.\n\n"
+    message += "ERROR INFORMATION:\n" \
         + f"Error message: '{error_msg}'\n" \
         + f"Container command: {event['detail']['container']['command']}\n"
     if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
+    message += "\nThis indicates that a job has failed and manual intervention is required to resubmit OBPG files associated with the failure to the Generate workflow.\n\n"
+    message += "Please follow these steps to diagnose and recover from the failure: https://wiki.jpl.nasa.gov/pages/viewpage.action?pageId=771470900#GenerateCloudErrorDetection&Recovery-AWSBatchJobFailures\n\n\n"
     try:
         response = sns.publish(
             TopicArn = topic_arn,
             Message = message,
             Subject = subject
         )
+        logger.info(f"Published error message to: {topic_arn}.")
     except botocore.exceptions.ClientError as e:
         logger.error(f"Failed to publish to SNS Topic: {topic_arn}.")
         logger.error(f"Error - {e}")
         sys.exit(1)
-    
-    logger.info(f"Message published to SNS Topic: {topic_arn}.")
     
 def get_unique_id(command):
     """Parse and return unique ID from container command."""
@@ -140,31 +154,37 @@ def return_licenses(unique_id, prefix, dataset, logger):
         refined_lic = check_existence(ssm, f"{prefix}-idl-{dataset}-{unique_id}-r", logger)
         floating_lic = check_existence(ssm, f"{prefix}-idl-{dataset}-{unique_id}-floating", logger)
         
-        # Wait until no other process is updating license info
-        retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
-        while retrieving_lic == "True":
-            logger.info("Watiing for license retrieval...")
-            time.sleep(3)
+        # Return licenses if they are available
+        if quicklook_lic != 0 or refined_lic != 0 or floating_lic != 0:
+        
+            # Wait until no other process is updating license info
             retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
-        
-        # Place hold on licenses so they are not changed
-        hold_license(ssm, prefix, "True", logger)  
-        
-        # Return licenses to appropriate parameters
-        write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
-        
-        # Release hold as done updating
-        hold_license(ssm, prefix, "False", logger)
-        
-        # Delete unique parameters
-        response = ssm.delete_parameters(
-            Names=[f"{prefix}-idl-{dataset}-{unique_id}-ql",
-                   f"{prefix}-idl-{dataset}-{unique_id}-r",
-                   f"{prefix}-idl-{dataset}-{unique_id}-floating"]
-        )
-        if quicklook_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-ql")
-        if refined_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-r")
-        if floating_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-floating")
+            while retrieving_lic == "True":
+                logger.info("Waiting for license retrieval...")
+                time.sleep(3)
+                retrieving_lic =  ssm.get_parameter(Name=f"{prefix}-idl-retrieving-license")["Parameter"]["Value"]
+            
+            # Place hold on licenses so they are not changed
+            hold_license(ssm, prefix, "True", logger)
+            
+            # Return licenses to appropriate parameters
+            write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger)
+            
+            # Delete unique parameters
+            response = ssm.delete_parameters(
+                Names=[f"{prefix}-idl-{dataset}-{unique_id}-ql",
+                    f"{prefix}-idl-{dataset}-{unique_id}-r",
+                    f"{prefix}-idl-{dataset}-{unique_id}-floating"]
+            )
+            if quicklook_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-ql")
+            if refined_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-r")
+            if floating_lic != 0: logger.info(f"Deleted parameter: {prefix}-idl-{dataset}-{unique_id}-floating")
+            
+            # Release hold as done updating
+            hold_license(ssm, prefix, "False", logger)
+            
+        else:
+            logger.info("No licenses to return.")
         
     except botocore.exceptions.ClientError as e:
         raise e
@@ -177,11 +197,12 @@ def check_existence(ssm, parameter_name, logger):
         
         try:
             parameter = ssm.get_parameter(Name=parameter_name)["Parameter"]["Value"]
+            logger.info(f"Located {parameter_name} with {parameter} reserved IDL licenses.")
         except botocore.exceptions.ClientError as e:
             if "(ParameterNotFound)" in str(e) :
                 parameter = 0
             else:
-                logger.error(e)
+                logger.error(f"Error - {e}")
                 logger.info("System exit.")
                 exit(1)
         return parameter   
@@ -189,6 +210,7 @@ def check_existence(ssm, parameter_name, logger):
 def hold_license(ssm, prefix, on_hold, logger):
         """Put parameter license number ot use indicating retrieval in process."""
         
+        hold_action = "place" if on_hold == "True" else "remove"        
         try:
             response = ssm.put_parameter(
                 Name=f"{prefix}-idl-retrieving-license",
@@ -197,8 +219,8 @@ def hold_license(ssm, prefix, on_hold, logger):
                 Tier="Standard",
                 Overwrite=True
             )
+            logger.info(f"{hold_action.capitalize()}d a hold on licenses...")
         except botocore.exceptions.ClientError as e:
-            hold_action = "place" if on_hold == "True" else "remove"
             logger.error(f"Could not {hold_action} a hold on licenses...")
             raise e
         
@@ -208,24 +230,27 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
     try:
         current = ssm.get_parameter(Name=f"{prefix}-idl-{dataset}")["Parameter"]["Value"]
         total = int(quicklook_lic) + int(refined_lic) + int(current)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-{dataset}",
-            Type="String",
-            Value=str(total),
-            Tier="Standard",
-            Overwrite=True
-        )
+        if total > 0:
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-{dataset}",
+                Type="String",
+                Value=str(total),
+                Tier="Standard",
+                Overwrite=True
+            )
+        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} license(s) to {prefix}-idl-{dataset}.")
+        
         current_floating = ssm.get_parameter(Name=f"{prefix}-idl-floating")["Parameter"]["Value"]
         floating_total = int(floating_lic) + int(current_floating)
-        response = ssm.put_parameter(
-            Name=f"{prefix}-idl-floating",
-            Type="String",
-            Value=str(floating_total),
-            Tier="Standard",
-            Overwrite=True
-        )
-        logger.info(f"Wrote {int(quicklook_lic) + int(refined_lic)} licenses to {dataset}.")
-        logger.info(f"Wrote {floating_lic} license(s) to floating.")
+        if floating_total > 0:
+            response = ssm.put_parameter(
+                Name=f"{prefix}-idl-floating",
+                Type="String",
+                Value=str(floating_total),
+                Tier="Standard",
+                Overwrite=True
+            )
+        logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:
-        logger.error(f"Could not return {dataset} and floating licenses...")
+        logger.error(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
         raise e

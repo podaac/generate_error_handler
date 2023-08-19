@@ -11,6 +11,7 @@ resource "aws_lambda_function" "aws_lambda_error_handler" {
       TOPIC = "${var.prefix}-batch-job-failure"
     }
   }
+  timeout = 15
 }
 
 resource "aws_lambda_permission" "aws_lambda_error_handler_eventbridge" {
@@ -102,6 +103,7 @@ resource "aws_cloudwatch_event_rule" "aws_eventbridge_batch_job_failure" {
     "detail" : {
       "jobName" : [{ "prefix" : "${var.prefix}" }],
       "status" : ["FAILED"]
+      "statusReason" : [{ "anything-but" : ["Terminating job.", "Array Child Job failed", "Dependent Job failed", "Canceled by user via console", "Terminated by user via console"] }]
     }
   })
 }

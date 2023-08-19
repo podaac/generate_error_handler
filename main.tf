@@ -18,8 +18,7 @@ provider "aws" {
   ignore_tags {
     key_prefixes = ["gsfc-ngap"]
   }
-  region  = var.aws_region
-  profile = var.profile
+  region = var.aws_region
 }
 
 # Data sources

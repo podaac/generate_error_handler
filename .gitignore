@@ -2,3 +2,6 @@ __pycache__
 
 *.terraform/
 tfplan
+
+package
+error_handler.zip
