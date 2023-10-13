@@ -18,19 +18,23 @@ import botocore
 def error_handler(event, context):
     """Handles error events delivered from EventBridge."""
     
-    # Log and publish event
-    logger = get_logger()
+    # Get data
     if len(event['detail']['attempts']) > 0:
         error_msg = event['detail']['attempts'][0]['statusReason']
     else:
         error_msg = event['detail']['statusReason']
-    log_event(event, error_msg, logger)
-    publish_event(event, error_msg, logger)
-    
-    # Return reserved licenses
     unique_id = get_unique_id(event['detail']['container']['command'])
     prefix = '-'.join(event['detail']['jobName'].split('-')[0:3])
     dataset = event['detail']['jobQueue'].split('-')[-1]
+    if len(event['detail']['attempts']) > 0: 
+        log_stream = event['detail']['attempts'][0]['container']['logStreamName']
+    else:
+        log_stream = ""
+    
+    # Log and publish event
+    logger = get_logger()
+    log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger)
+    publish_event(event, error_msg, logger)
     
     # Sleep for a random amount of time for multiple job failures
     random.seed(a=event['detail']['jobId'], version=2)
@@ -38,7 +42,7 @@ def error_handler(event, context):
     logger.info(f"Sleeping for {rand_float} seconds.")
     time.sleep(rand_float)
     
-    # Return licenses
+    # Return reserved licenses
     try:
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
@@ -78,17 +82,26 @@ def get_logger():
     # Return logger
     return logger
 
-def log_event(event, error_msg, logger):
+def log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger):
     """Log event details in CloudWatch."""
     
-    logger.info(f"Event - {event}")
-    logger.info(f"Failed job account - {event['account']}")
-    logger.info(f"Failed job name - {event['detail']['jobName']}")
-    logger.info(f"Failed job id - {event['detail']['jobId']}")
-    logger.info(f"Failed job queue - {event['detail']['jobQueue']}")
-    logger.info(f"Error message - '{error_msg}'")
-    if len(event['detail']['attempts']) > 0: logger.info(f"Log file - {event['detail']['attempts'][0]['container']['logStreamName']}")
-    logger.info(f"Container command - {event['detail']['container']['command']}")
+    logger.info(f"Event: {event}")
+    logger.info(f"Failed job environment: {prefix.split('-')[-1].upper()}")
+    logger.info(f"Failed job account: {event['account']}")
+    logger.info(f"Failed job queue: {event['detail']['jobQueue']}")
+    logger.info(f"Failed job name: {event['detail']['jobName']}")
+    logger.info(f"Failed job id: {event['detail']['jobId']}")
+    if log_stream: logger.info(f"Failed job log stream: {log_stream}")
+    logger.info(f"Failed job unique identifier: {unique_id}")
+    if dataset == "aqua":
+        ds = "MODIS Aqua"
+    elif dataset == "terra":
+        ds = "MODIS Terra"
+    else:
+        ds = "VIIRS"
+    logger.info(f"Failed job dataset: {ds}")
+    logger.info(f"Failed job container command: {event['detail']['container']['command']}")
+    logger.info(f"Failed job error message: '{error_msg}'")
     
 def publish_event(event, error_msg, logger):
     """Publish event to SNS Topic."""
