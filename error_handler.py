@@ -34,7 +34,7 @@ def error_handler(event, context):
     # Log and publish event
     logger = get_logger()
     log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger)
-    publish_event(event, error_msg, logger)
+    publish_event(event, error_msg, log_stream, logger)
     
     # Sleep for a random amount of time for multiple job failures
     random.seed(a=event['detail']['jobId'], version=2)
@@ -47,14 +47,15 @@ def error_handler(event, context):
         return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
         if "(ParameterNotFound)" in str(e):
-            logger.info(e)
+            logger.error(e)
             logger.info("No unique licenses were tracked in the parameter store for this execution.")
         elif "(TooManyUpdates)" in str(e):
-            logger.info(e)
+            logger.error(e)
             logger.info("Trying to update the parameter store at the same time as another lambda.")
         else:
-            logger.error(f"Error trying to restore reserved IDL licenses to the parameter store.")
+            logger.info(f"Error trying to restore reserved IDL licenses to the parameter store.")
             logger.error(e)
+            logger.info("System exit.")
             sys.exit(1)
     
 def get_logger():
@@ -103,7 +104,7 @@ def log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger):
     logger.info(f"Failed job container command: {event['detail']['container']['command']}")
     logger.info(f"Failed job error message: '{error_msg}'")
     
-def publish_event(event, error_msg, logger):
+def publish_event(event, error_msg, log_stream, logger):
     """Publish event to SNS Topic."""
     
     sns = boto3.client("sns")
@@ -112,7 +113,7 @@ def publish_event(event, error_msg, logger):
     try:
         topics = sns.list_topics()
     except botocore.exceptions.ClientError as e:
-        logger.error("Failed to list SNS Topics.")
+        logger.info("Failed to list SNS Topics.")
         logger.error(f"Error - {e}")
         sys.exit(1)
     for topic in topics["Topics"]:
@@ -120,16 +121,20 @@ def publish_event(event, error_msg, logger):
             topic_arn = topic["TopicArn"]
             
     # Publish to topic
-    subject = f"Generate Batch Job Failure: {event['detail']['jobName']}"
+    subject = f"Generate Batch Job Failure: {event['detail']['jobName'].split('-')[-2].upper()}"
     message = f"A Generate AWS Batch job has FAILED. Manual intervention required.\n\n" \
         + "JOB INFORMATION:\n" \
-        + f"Job Name: {event['detail']['jobName']}.\n" \
-        + f"Job Identifier: {event['detail']['jobId']}.\n" \
-        + f"Job Queue: {event['detail']['jobQueue']}.\n\n"
-    message += "ERROR INFORMATION:\n" \
-        + f"Error message: '{error_msg}'\n" \
-        + f"Container command: {event['detail']['container']['command']}\n"
-    if len(event['detail']['attempts']) > 0: message += f"Log file: {event['detail']['attempts'][0]['container']['logStreamName']}\n"
+        + f"Job name: {event['detail']['jobName']}.\n" \
+        + f"Job identifier: {event['detail']['jobId']}.\n" \
+        + f"Job queue: {event['detail']['jobQueue']}.\n"
+    
+    if log_stream:
+        message += f"Log file: {log_stream}\n"
+        
+    message += f"Container command: {event['detail']['container']['command']}\n"
+    
+    message += "\nERROR INFORMATION:\n" \
+        + f"Error message:\n\t'{error_msg}'\n\n"
     message += "\nThis indicates that a job has failed and manual intervention is required to resubmit OBPG files associated with the failure to the Generate workflow.\n\n"
     message += "Please follow these steps to diagnose and recover from the failure: https://wiki.jpl.nasa.gov/pages/viewpage.action?pageId=771470900#GenerateCloudErrorDetection&Recovery-AWSBatchJobFailures\n\n\n"
     try:
@@ -140,7 +145,7 @@ def publish_event(event, error_msg, logger):
         )
         logger.info(f"Published error message to: {topic_arn}.")
     except botocore.exceptions.ClientError as e:
-        logger.error(f"Failed to publish to SNS Topic: {topic_arn}.")
+        logger.info(f"Failed to publish to SNS Topic: {topic_arn}.")
         logger.error(f"Error - {e}")
         sys.exit(1)
     
@@ -215,9 +220,7 @@ def check_existence(ssm, parameter_name, logger):
             if "(ParameterNotFound)" in str(e) :
                 parameter = 0
             else:
-                logger.error(f"Error - {e}")
-                logger.info("System exit.")
-                exit(1)
+                raise e
         return parameter   
 
 def hold_license(ssm, prefix, on_hold, logger):
@@ -234,7 +237,7 @@ def hold_license(ssm, prefix, on_hold, logger):
             )
             logger.info(f"{hold_action.capitalize()}d a hold on licenses...")
         except botocore.exceptions.ClientError as e:
-            logger.error(f"Could not {hold_action} a hold on licenses...")
+            logger.info(f"Could not {hold_action} a hold on licenses...")
             raise e
         
 def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, dataset, logger):
@@ -265,5 +268,5 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
             )
         logger.info(f"Wrote {floating_lic} license(s) to {prefix}-idl-floating.")
     except botocore.exceptions.ClientError as e:
-        logger.error(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
+        logger.info(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
         raise e
