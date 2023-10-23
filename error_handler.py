@@ -215,7 +215,13 @@ def check_existence(ssm, parameter_name, logger):
         
         try:
             parameter = ssm.get_parameter(Name=parameter_name)["Parameter"]["Value"]
-            logger.info(f"Located {parameter_name} with {parameter} reserved IDL licenses.")
+            if "floating" in parameter_name:
+                ltype = "floating"
+            elif "ql" in parameter_name:
+                ltype = "quicklook dataset"
+            else:
+                ltype = "refined dataset"
+            logger.info(f"Located {ltype} {parameter_name}: {parameter} reserved licenses.")
         except botocore.exceptions.ClientError as e:
             if "(ParameterNotFound)" in str(e) :
                 parameter = 0
