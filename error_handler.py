@@ -33,7 +33,7 @@ def error_handler(event, context):
     
     # Log and publish event
     logger = get_logger()
-    log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger)
+    execution_data = log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger)
     publish_event(event, error_msg, log_stream, logger)
     
     # Sleep for a random amount of time for multiple job failures
@@ -44,19 +44,24 @@ def error_handler(event, context):
     
     # Return reserved licenses
     try:
-        return_licenses(unique_id, prefix, dataset, logger)
+        idl_license_dict = return_licenses(unique_id, prefix, dataset, logger)
     except botocore.exceptions.ClientError as e:
         if "(ParameterNotFound)" in str(e):
             logger.error(e)
             logger.info("No unique licenses were tracked in the parameter store for this execution.")
+            idl_license_dict = { "floating_idl_located": "None", "floating_idl_located_number": 0, "dataset_quicklook_idl_located": "None", "dataset_quicklook_idl_located_number": 0, "dataset_refined_idl_located": "None", "dataset_refined_idl_located_number": 0 }
         elif "(TooManyUpdates)" in str(e):
             logger.error(e)
             logger.info("Trying to update the parameter store at the same time as another lambda.")
+            idl_license_dict = { "floating_idl_located": "None", "floating_idl_located_number": 0, "dataset_quicklook_idl_located": "None", "dataset_quicklook_idl_located_number": 0, "dataset_refined_idl_located": "None", "dataset_refined_idl_located_number": 0 }
         else:
             logger.info(f"Error trying to restore reserved IDL licenses to the parameter store.")
             logger.error(e)
             logger.info("System exit.")
             sys.exit(1)
+            
+    # Print final log message
+    print_final_log(logger, execution_data, idl_license_dict)
     
 def get_logger():
     """Return a formatted logger object."""
@@ -103,6 +108,18 @@ def log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger):
     logger.info(f"Failed job dataset: {ds}")
     logger.info(f"Failed job container command: {event['detail']['container']['command']}")
     logger.info(f"Failed job error message: '{error_msg}'")
+    
+    execution_data = f"failed_job_environment: {prefix.split('-')[-1].upper()} "\
+        + f"- failed_job_account: {event['account']} - " \
+        + f"failed_job_queue: {event['detail']['jobQueue']} - " \
+        + f"failed_job_name: {event['detail']['jobName']} - " \
+        + f"failed_job_id: {event['detail']['jobId']} - "
+    if log_stream: execution_data += f"failed_job_logstream: {log_stream} - "
+    execution_data += f"failed_job_unique_id: {unique_id} - " \
+        + f"failed_job_dataset: {ds} - " \
+        + f"failed_job_command: {event['detail']['container']['command']} - " \
+        + f"failed_job_error_message: {error_msg}"
+    return execution_data
     
 def publish_event(event, error_msg, log_stream, logger):
     """Publish event to SNS Topic."""
@@ -201,8 +218,11 @@ def return_licenses(unique_id, prefix, dataset, logger):
             # Release hold as done updating
             hold_license(ssm, prefix, "False", logger)
             
+            return { "floating_idl_located": f"{prefix}-idl-{dataset}-{unique_id}-floating", "floating_idl_located_number": floating_lic, "dataset_quicklook_idl_located": f"{prefix}-idl-{dataset}-{unique_id}-ql",  "dataset_quicklook_idl_located_number": quicklook_lic, "dataset_refined_idl_located": f"{prefix}-idl-{dataset}-{unique_id}-r", "dataset_refined_idl_located_number": refined_lic }
+            
         else:
             logger.info("No licenses to return.")
+            return { "floating_idl_located": "None", "floating_idl_located_number": 0, "dataset_quicklook_idl_located": "None", "dataset_quicklook_idl_located_number": 0, "dataset_refined_idl_located": "None", "dataset_refined_idl_located_number": 0 }
         
     except botocore.exceptions.ClientError as e:
         raise e
@@ -276,3 +296,14 @@ def write_licenses(ssm, quicklook_lic, refined_lic, floating_lic, prefix, datase
     except botocore.exceptions.ClientError as e:
         logger.info(f"Could not return {int(quicklook_lic) + int(refined_lic)} {prefix}-idl-{dataset} and {floating_lic} {prefix}-idl-floating licenses...")
         raise e
+
+def print_final_log(logger, execution_data, idl_license_dict):
+    """Print final log message."""
+    
+    # Organize file data into a string
+    final_log_message = execution_data
+    for key,value in idl_license_dict.items():
+        final_log_message += f" - {key}: {value}"
+    
+    # Print final log message and remove temp log file
+    logger.info(final_log_message)
