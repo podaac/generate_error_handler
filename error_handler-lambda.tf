@@ -103,7 +103,7 @@ resource "aws_cloudwatch_event_rule" "aws_eventbridge_batch_job_failure" {
     "detail" : {
       "jobName" : [{ "prefix" : "${var.prefix}" }],
       "status" : ["FAILED"]
-      "statusReason" : [{ "anything-but" : ["Terminating job.", "Array Child Job failed", "Dependent Job failed", "Canceled by user via console", "Terminated by user via console"] }]
+      "statusReason" : [{ "anything-but" : ["Terminating job.", "Array Child Job failed", "Dependent Job failed", "Canceled by user via console", "Terminated by user via console", "Terminated via console"] }]
     }
   })
 }
