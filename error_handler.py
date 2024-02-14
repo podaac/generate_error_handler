@@ -301,7 +301,7 @@ def print_final_log(logger, execution_data, idl_license_dict):
     """Print final log message."""
     
     # Organize file data into a string
-    final_log_message = execution_data
+    final_log_message = f"final_log: {execution_data}"
     for key,value in idl_license_dict.items():
         final_log_message += f" - {key}: {value}"
     
