@@ -4,7 +4,7 @@ resource "aws_lambda_function" "aws_lambda_error_handler" {
   function_name    = "${var.prefix}-error-handler"
   role             = aws_iam_role.aws_lambda_execution_role.arn
   handler          = "error_handler.error_handler"
-  runtime          = "python3.9"
+  runtime          = "python3.12"
   source_code_hash = filebase64sha256("error_handler.zip")
   environment {
     variables = {
