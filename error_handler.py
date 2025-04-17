@@ -103,6 +103,8 @@ def log_event(event, error_msg, unique_id, prefix, dataset, log_stream, logger):
         ds = "MODIS Aqua"
     elif dataset == "terra":
         ds = "MODIS Terra"
+    elif dataset == "jpss1":
+        ds = "JPSS1"
     else:
         ds = "VIIRS"
     logger.info(f"Failed job dataset: {ds}")
